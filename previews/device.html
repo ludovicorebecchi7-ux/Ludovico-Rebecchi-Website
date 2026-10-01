@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anteprima · Ludovico Rebecchi</title>
+    <style>
+      :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+      body { background: #10090b; color: #d3c5c4; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+      header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 22px; border-bottom: 1px solid #38282c; font-size: 12px; letter-spacing: .08em; }
+      header span:last-child { color: #9a888b; white-space: nowrap; }
+      main { min-height: 0; display: grid; place-items: center; padding: 20px; overflow: hidden; }
+      .stage { position: relative; flex: none; }
+      .screen { position: absolute; left: 0; top: 0; padding: 4px; background: #242026; border: 1px solid #66575c; border-radius: 15px; transform-origin: top left; box-shadow: 0 20px 65px #0008; }
+      iframe { display: block; border: 0; border-radius: 10px; background: #20060c; }
+      @media (max-width: 600px) { header { padding: 12px; font-size: 10px; } main { padding: 12px; } }
+    </style>
+  </head>
+  <body>
+    <header><span id="label"></span><span id="dimensions"></span></header>
+    <main id="space"><div class="stage" id="stage"><div class="screen" id="screen"><iframe id="site" title="Anteprima del portfolio" src="../index.html?preview=QUASI2-pointer-v3" allow="autoplay; encrypted-media; fullscreen"></iframe></div></div></main>
+    <script>
+      const modes = {
+        portrait: { label: 'Telefono · verticale', width: 390, height: 844 },
+        landscape: { label: 'Telefono · orizzontale', width: 844, height: 390 },
+        ultrawide: { label: 'Schermo ultralargo · curvo', width: 2560, height: 1080 }
+      };
+      const params = new URLSearchParams(location.search);
+      const customWidth = Number(params.get('width'));
+      const customHeight = Number(params.get('height'));
+      const mode = Number.isInteger(customWidth) && Number.isInteger(customHeight) && customWidth >= 320 && customWidth <= 3840 && customHeight >= 320 && customHeight <= 2160
+        ? { label: 'Formato intermedio', width: customWidth, height: customHeight }
+        : modes[params.get('mode')] || modes.portrait;
+      const space = document.getElementById('space');
+      const stage = document.getElementById('stage');
+      const screen = document.getElementById('screen');
+      const site = document.getElementById('site');
+      document.title = `${mode.label} · Ludovico Rebecchi`;
+      document.getElementById('label').textContent = mode.label;
+      document.getElementById('dimensions').textContent = `${mode.width} × ${mode.height} px`;
+      site.width = mode.width;
+      site.height = mode.height;
+      const frameWidth = mode.width + 10;
+      const frameHeight = mode.height + 10;
+      screen.style.width = `${frameWidth}px`;
+      screen.style.height = `${frameHeight}px`;
+      const fit = () => {
+        const padding = getComputedStyle(space);
+        const availableWidth = space.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+        const availableHeight = space.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+        const scale = Math.min(1, availableWidth / frameWidth, availableHeight / frameHeight);
+        stage.style.width = `${frameWidth * scale}px`;
+        stage.style.height = `${frameHeight * scale}px`;
+        screen.style.transform = `scale(${scale})`;
+      };
+      new ResizeObserver(fit).observe(space);
+      fit();
+    </script>
+  </body>
+</html>

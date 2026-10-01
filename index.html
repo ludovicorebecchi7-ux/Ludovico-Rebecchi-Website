@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#250812">
+<meta name="description" content="Ludovico Rebecchi">
+<title>Ludovico Rebecchi</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23250812' d='M0 0h32v32H0z'/%3E%3Ctext x='9' y='25' fill='%23e9dfd5' font-family='serif' font-size='28' font-style='italic'%3El%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=quasi2-responsive-v86">
+<link rel="stylesheet" href="assets/liquid-glass-carousel.css?v=hero-red-v64">
+<link rel="preload" href="assets/hero-studio-guitar-red-desktop-v9.png" as="image" media="(min-width: 700px)">
+<link rel="preload" href="assets/hero-studio-guitar-red-mobile-v9.png" as="image" media="(max-width: 699px)">
+<script src="app.bundle.js?v=quasi2-pointer-v3" defer></script>
+</head>
+<body>
+<main class="sequence" id="sequence" aria-label="Ludovico Rebecchi, sequenza fotografica">
+  <div class="viewport">
+    <div class="fallback" aria-hidden="true"></div>
+    <div class="photographic-field" id="photographic-field" aria-hidden="true">
+      <canvas id="photograph-a"></canvas>
+      <canvas id="photograph-b"></canvas>
+      <canvas id="photograph-c"></canvas>
+      <canvas id="photograph-d"></canvas>
+      <canvas id="photograph-e"></canvas>
+    </div>
+    <div class="book-fold" id="book-fold" aria-hidden="true"></div>
+    <div class="paper-grain" aria-hidden="true"><canvas id="paper"></canvas></div>
+    <div class="cover-meta" id="cover-meta" aria-hidden="true" inert>
+      <span class="cover-location" aria-hidden="true">PORTFOLIO</span>
+      <button class="cover-quote" id="sound-toggle" type="button" aria-pressed="false" aria-label="sound off"><span class="sound-waves" aria-hidden="true"><i></i><i></i><i></i><i></i></span>sound<br><span id="sound-state">off</span></button>
+      <span class="cover-mark" aria-hidden="true">∿</span>
+      <p class="hero-subhead">Artist, Producer &amp; Mixer</p>
+    </div>
+    <div class="identity" id="identity"><h1>ludovico rebecchi</h1></div>
+    <section class="editorial-notes" id="editorial-notes" aria-hidden="true" inert aria-labelledby="intro-title">
+      <h2 class="intro-title" id="intro-title" aria-label="world building"><span aria-hidden="true">w</span><span aria-hidden="true">o</span><span aria-hidden="true">r</span><span aria-hidden="true">l</span><span aria-hidden="true">d</span><span class="word-gap" aria-hidden="true"></span><span aria-hidden="true">b</span><span aria-hidden="true">u</span><span aria-hidden="true">i</span><span aria-hidden="true">l</span><span aria-hidden="true">d</span><span aria-hidden="true">i</span><span aria-hidden="true">n</span><span aria-hidden="true">g</span></h2>
+      <p class="intro-copy"><span>World building is the most important part of developing and communicating an idea.</span><span>That world becomes the gateway into the artist’s mind.</span><span>Sound, image and atmosphere come together to create a universe you can lose yourself in.</span></p>
+    </section>
+    <section class="third-notes" id="third-notes" aria-hidden="true" inert aria-labelledby="listen-title">
+      <h2 class="listen-title" id="listen-title" aria-label="my world, my mind">
+        <span class="listen-column listen-world" aria-hidden="true"><span>m</span><span>y</span><span class="vertical-word-gap"></span><span>w</span><span>o</span><span>r</span><span>l</span><span>d</span></span>
+        <span class="listen-column listen-mind" aria-hidden="true"><span>m</span><span>y</span><span class="vertical-word-gap"></span><span>m</span><span>i</span><span>n</span><span>d</span></span>
+      </h2>
+      <div class="spotify-profile-note">
+        <p><span>If world building is the gateway into an artist’s mind, this is mine.</span></p>
+        <section class="artist-mini-player" aria-label="My music">
+          <h3>my music</h3>
+          <div class="artist-mini-track-list">
+            <button class="artist-mini-track" type="button" data-local-track="about-me" data-audio-src="assets/about-me.wav" data-track-title="About Me" aria-pressed="false">
+              <span class="artist-mini-play" aria-hidden="true">▶</span><span class="artist-mini-copy"><strong>About Me</strong><small>feat. Sigmund B. &amp; Allan</small></span><span class="artist-mini-duration">2:16</span>
+            </button>
+            <button class="artist-mini-track" type="button" data-local-track="feeling" data-audio-src="assets/a-feeling-i-dont-wanna-name.wav" data-track-title="A Feeling I Don't Wanna Name" aria-pressed="false">
+              <span class="artist-mini-play" aria-hidden="true">▶</span><span class="artist-mini-copy"><strong>A Feeling I Don't Wanna Name</strong><small>feat. Sigmund B.</small></span><span class="artist-mini-duration">2:08</span>
+            </button>
+          </div>
+          <div class="artist-mini-controls">
+            <button class="artist-mini-toggle" id="artist-audio-toggle" type="button" aria-label="Play selected track">▶</button>
+            <span class="artist-mini-now-playing" id="artist-audio-title">select a track</span>
+            <span class="artist-mini-time" id="artist-audio-time">0:00</span>
+            <input class="artist-mini-progress" id="artist-audio-progress" type="range" min="0" max="1000" value="0" aria-label="Track position" disabled>
+          </div>
+          <audio id="artist-local-audio" preload="none"></audio>
+        </section>
+      </div>
+    </section>
+    <section class="credits-notes" id="credits-notes" aria-hidden="true" inert aria-labelledby="credits-title">
+      <h2 class="credits-title" id="credits-title" aria-label="credits"><span aria-hidden="true">c</span><span aria-hidden="true">r</span><span aria-hidden="true">e</span><span aria-hidden="true">d</span><span aria-hidden="true">i</span><span aria-hidden="true">t</span><span aria-hidden="true">s</span></h2>
+      <button class="credits-listen-open" id="credits-listen-open" type="button">listen to the work <span aria-hidden="true">↗</span></button>
+      <div class="listen-room" id="listen-room" aria-hidden="true" inert>
+        <button class="listen-room-close" id="listen-room-close" type="button" aria-label="Close listening room">close <span aria-hidden="true">×</span></button>
+        <p class="listen-room-kicker">selected work · Ludovico Rebecchi</p>
+        <div class="listen-room-content" id="listen-carousel" aria-label="Spotify track carousels">
+          <section class="listen-track-group" data-listen-row="produced" aria-labelledby="produced-row-title">
+            <header class="listen-row-head"><div><h3 id="produced-row-title">Songs I produced</h3><p class="spotify-list-meta" id="credits-produced-list-meta"></p></div><a class="spotify-playlist-start" data-spotify-playlist="produced" href="https://open.spotify.com/playlist/3JOXfMWSclsNA9mn9IRZWc" target="_blank" rel="noopener noreferrer">play all <span aria-hidden="true">↗</span></a></header>
+            <div class="spotify-track-scroll listen-track-rail" id="credits-produced-tracklist" role="region" aria-label="Songs I produced, tracks" tabindex="0"></div>
+          </section>
+          <section class="listen-track-group" data-listen-row="mixed" aria-labelledby="mixed-row-title">
+            <header class="listen-row-head"><div><h3 id="mixed-row-title">Songs I mixed</h3><p class="spotify-list-meta" id="credits-mixed-list-meta"></p></div><a class="spotify-playlist-start" data-spotify-playlist="mixed" href="https://open.spotify.com/playlist/0G2Q2mCSgjcvSFwIdfVSZI" target="_blank" rel="noopener noreferrer">play all <span aria-hidden="true">↗</span></a></header>
+            <div class="spotify-track-scroll listen-track-rail" id="credits-mixed-tracklist" role="region" aria-label="Songs I mixed, tracks" tabindex="0"></div>
+          </section>
+        </div>
+        <div class="listen-player-stage" id="listen-player-stage" aria-live="polite">
+          <p class="listen-player-label" id="listen-player-label">choose a track to listen</p>
+          <article class="spotify-card listen-playback-card" id="credits-produced-card" aria-label="Spotify player for songs I produced"><div class="spotify-embed-engine" id="credits-produced-player"></div></article>
+          <article class="spotify-card listen-playback-card" id="credits-mixed-card" aria-label="Spotify player for songs I mixed"><div class="spotify-embed-engine" id="credits-mixed-player"></div></article>
+        </div>
+        <p class="listen-room-hint">select a cover to play</p>
+      </div>
+    </section>
+    <section class="closing-notes" id="closing-notes" aria-hidden="true" inert aria-labelledby="closing-title">
+      <h2 id="closing-title">define how you want<br>your idea to feel</h2>
+      <div class="contact-links" aria-label="Contact links">
+        <a class="contact-link" id="mail-link" href="mailto:ludovicorebecchi7@gmail.com" aria-label="Email ludovicorebecchi7@gmail.com">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"></rect><path d="m3.5 6 8.5 7 8.5-7"></path></svg>
+          <span>ludovicorebecchi7@gmail.com</span>
+        </a>
+        <a class="contact-link" id="instagram-link" aria-label="Instagram ludovico_rebecchi" aria-disabled="true" target="_blank" rel="noopener noreferrer">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2"></rect><circle cx="12" cy="12" r="4.1"></circle><circle class="social-dot" cx="17.6" cy="6.7" r="1"></circle></svg>
+          <span>ludovico_rebecchi</span>
+        </a>
+        <a class="contact-link" id="tiktok-link" aria-label="TikTok @ludovicorebecchi" aria-disabled="true" target="_blank" rel="noopener noreferrer">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.4 3.2v11.3a4.7 4.7 0 1 1-4.1-4.66"></path><path d="M14.4 3.2c.55 2.7 2.15 4.25 5 4.75"></path></svg>
+          <span>@ludovicorebecchi</span>
+        </a>
+      </div>
+    </section>
+    <button class="sound-dock" id="sound-dock" type="button" aria-pressed="false" aria-label="sound off">
+      <span class="sound-waves" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    </button>
+    <audio id="site-audio-loop" src="assets/loop-sito.mp3" preload="auto" loop></audio>
+    <nav class="page-controls" aria-label="Sfoglia le cinque pagine">
+      <button type="button" id="previous-page" aria-label="Pagina precedente" disabled>↑</button>
+      <button type="button" id="next-page" aria-label="Pagina successiva">↓</button>
+    </nav>
+    <span class="scroll-invitation" id="invitation">scroll <span aria-hidden="true">↓</span></span>
+    <span class="scene-announcement" id="scene-announcement" role="status" aria-live="polite"></span>
+    <p class="load-error" id="load-error" role="status" hidden>Impossibile caricare le fotografie. Ricarica la pagina.</p>
+    <noscript><p class="load-error">Attiva JavaScript per vedere la sequenza fotografica.</p></noscript>
+  </div>
+</main>
+</body>
+</html>
