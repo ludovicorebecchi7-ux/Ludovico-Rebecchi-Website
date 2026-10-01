@@ -1028,10 +1028,10 @@ function updateArtistAudioUI(){
     row.classList.toggle('is-active',active);
     row.setAttribute('aria-pressed',String(active&&playing));
     const icon=row.querySelector('.artist-mini-play');
-    if(icon)icon.textContent=active&&playing?'Ⅱ':'▶';
+    if(icon)icon.classList.toggle('is-playing',active&&playing);
   });
   if(artistAudioToggle){
-    artistAudioToggle.textContent=playing?'Ⅱ':'▶';
+    artistAudioToggle.classList.toggle('is-playing',playing);
     artistAudioToggle.setAttribute('aria-label',playing?'Pause selected track':'Play selected track');
   }
   if(artistAudioTitle)artistAudioTitle.textContent=activeArtistTrack?.dataset.trackTitle||'select a track';
