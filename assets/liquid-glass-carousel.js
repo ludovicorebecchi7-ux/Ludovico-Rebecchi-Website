@@ -36530,7 +36530,7 @@ void main(){
   "uZoom",
   "uRimTangential",
   "uRimInward"
-], Sr = 4, gN = 6, vN = 12, xN = 90;
+], Sr = 4, gN = 14, vN = 18, xN = 90;
 function Ga(o, t) {
   const i = o[t];
   if (i === void 0)
@@ -36763,10 +36763,24 @@ function SN(o, t, i) {
     });
   }
   function rt($, ct) {
-    for (const gt of Ve)
-      if ($ >= gt.left && $ <= gt.right && ct >= gt.top && ct <= gt.bottom)
-        return gt;
-    return null;
+    let gt = null, Tt = 1 / 0;
+    for (const Ft of Ve) {
+      if (!q[Ft.poolIdx]?.mesh.visible || !b[Ft.srcIndex]?.tex || ct < Ft.top || ct > Ft.bottom || $ < Ft.left || $ > Ft.right) continue;
+      const re = Math.abs($ - (Ft.left + Ft.right) / 2);
+      if (re < Tt) gt = Ft, Tt = re;
+    }
+    return gt;
+  }
+  function hitCover($, ct) {
+    const gt = rt($, ct);
+    if (gt) return gt;
+    let Tt = null, Ft = 1 / 0;
+    for (const re of Ve) {
+      if (ct < re.top || ct > re.bottom || !q[re.poolIdx]?.mesh.visible || !b[re.srcIndex]?.tex) continue;
+      const Kt = Math.max(re.left - $, 0, $ - re.right);
+      if (Kt < Ft) Tt = re, Ft = Kt;
+    }
+    return Ft <= Math.max(40, p * 0.28) ? Tt : null;
   }
   function vt($) {
     const ct = A.domElement.getBoundingClientRect();
@@ -36777,6 +36791,15 @@ function SN(o, t, i) {
   }
   const yt = A.domElement;
   let mt = !1, Xt = null, Lt = 0, Jt = 0, ee = 0, wt = 0, Bt = !1, ue = "mouse", jt = Number.NaN, Ht = Number.NaN, _e = !1, X = "mouse";
+  let pointerStartX = 0, pointerVisualScale = 1, downHit = null, draggingCover = !1;
+  function visualScale() {
+    try {
+      const frame = window.frameElement;
+      return frame ? frame.getBoundingClientRect().width / Math.max(1, frame.offsetWidth) : 1;
+    } catch {
+      return 1;
+    }
+  }
   t && Jn.set(t, {
     xPercent: 20,
     yPercent: 30,
@@ -36789,7 +36812,7 @@ function SN(o, t, i) {
     $ !== Et && (Et = $, yt.style.cursor = $);
   }
   function de() {
-    return Ct.active || Ot || oe ? Wt("") : Wt(mt ? "grabbing" : Rt ? "pointer" : "");
+    return Ct.active || Ot || oe ? Wt("default") : Wt(draggingCover ? "grabbing" : Rt || mt && downHit ? "pointer" : "default");
   }
   function Ne($) {
     Rt = $, Ke($);
@@ -36800,7 +36823,7 @@ function SN(o, t, i) {
         Ne(!1);
         return;
       }
-      Ne(rt(jt, Ht) !== null);
+      Ne(hitCover(jt, Ht) !== null);
     }
   }
   function Ke($) {
@@ -36832,24 +36855,28 @@ function SN(o, t, i) {
     } catch {
     }
     const ct = vt($);
-    Lt = ct.x, jt = ct.x, Ht = ct.y, Jt = 0, ee = 0, wt = performance.now(), Ke(!1), Yt = 0, lt = null, It = !0;
+    Lt = ct.x, pointerStartX = ct.x, pointerVisualScale = visualScale(), jt = ct.x, Ht = ct.y, Jt = 0, ee = 0, wt = performance.now(), downHit = hitCover(ct.x, ct.y), draggingCover = !1, Ke(!1), Yt = 0, lt = null, It = !0;
+    de();
   }
   function Nr($) {
     const ct = vt($);
     if (mt && $.pointerId === Xt) {
       const gt = ue === "mouse" ? S : T, Tt = ct.x - Lt;
-      Lt = ct.x, Jt += Math.abs(Tt), nt -= Tt * gt, ee = ee * 0.6 + -Tt * gt * 0.4, wt = performance.now();
+      Lt = ct.x, Jt = Math.abs(ct.x - pointerStartX) * pointerVisualScale;
+      if (!draggingCover && Jt > (ue === "mouse" ? gN : vN)) draggingCover = !0, downHit = null, de();
+      if (draggingCover) nt -= Tt * gt, ee = ee * 0.6 + -Tt * gt * 0.4, wt = performance.now();
     }
     if (jt = ct.x, Ht = ct.y, X = $.pointerType || "mouse", _e = !0, $.pointerType === "mouse") {
       if (Nt && Nt(ct.x), Pt && Pt(ct.y), Ct.active) {
         Ne(!1);
         return;
       }
-      Ne(rt(ct.x, ct.y) !== null);
+      Ne(hitCover(ct.x, ct.y) !== null);
     }
   }
   function Ka($) {
     if (mt && !($ && Xt !== null && $.pointerId !== Xt)) {
+      const ct = $ ? vt($) : null, gt = downHit;
       if (mt = !1, Xt !== null) {
         try {
           yt.releasePointerCapture(Xt);
@@ -36857,10 +36884,9 @@ function SN(o, t, i) {
         }
         Xt = null;
       }
-      if (Yt = performance.now() - wt > xN ? 0 : ee, ee = 0, Bt = Jt > (ue === "mouse" ? gN : vN), ue === "mouse" ? Ne(rt(jt, Ht) !== null) : de(), $ && $.type !== "pointercancel" && !Bt) {
-        const ct = vt($);
-        ri(ct.x, ct.y) && (Bt = !0);
-      }
+      Yt = draggingCover && performance.now() - wt <= xN ? ee : 0, ee = 0, Bt = draggingCover, draggingCover = !1, downHit = null;
+      ue === "mouse" ? Ne(hitCover(jt, Ht) !== null) : de();
+      if ($ && $.type !== "pointercancel" && !Bt && (gt ? selectCover(gt) : ri(ct.x, ct.y))) Bt = !0;
     }
   }
   function Ta($) {
@@ -36879,8 +36905,11 @@ function SN(o, t, i) {
   }
   function ri($, ct) {
     if (un()) return !1;
-    const gt = rt($, ct);
-    return gt ? (It = !0, Yt = 0, nt = ut(et(_t + gt.centerX)), lt = null, Ke(!1), i.onSelect(gt.srcIndex), !0) : !1;
+    return selectCover(hitCover($, ct));
+  }
+  function selectCover($) {
+    if (!$ || un()) return !1;
+    return It = !0, Yt = 0, nt = ut(et(_t + $.centerX)), lt = null, Ke(!1), i.onSelect($.srcIndex), !0;
   }
   function Qa() {
     if (Ct.active || !I || !b[I.srcIndex]?.tex) return;

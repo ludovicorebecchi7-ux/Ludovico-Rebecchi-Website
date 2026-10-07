@@ -670,7 +670,19 @@ const spotifyQueuedPreviewUris=new Map();
 const spotifyPendingTimers=new Map();
 const spotifyPlaybackTargets=new Map();
 let spotifySelectionEpoch=0;
-function spotifyGroupForKey(key){return key;}
+let spotifyActiveSelection=null;
+let spotifyQueuedSelection=null;
+function requestSpotifyPlay(selection,controller){
+  if(spotifyActiveSelection!==selection||!pendingSpotifyCards.has(selection.card))return;
+  if(selection.playSent)return;
+  selection.playSent=true;
+  // Spotify's iframe API queues play() while loadEntity is navigating and
+  // flushes it on ready. Sending it again on ready can race the new track.
+  try{controller.play?.()?.catch?.(()=>{});}catch{}
+}
+// Both credits rows share one Spotify embed. Rapidly alternating two embeds
+// can leave Chromium's inactive frame reporting Play without advancing audio.
+function spotifyGroupForKey(key){return key==='mixed'?'produced':key;}
 function spotifyKeyForCard(card){
   const key=Object.entries(spotifyCollections).find(([,collection])=>document.getElementById(collection.cardId)===card)?.[0];
   return key?spotifyGroupForKey(key):null;
@@ -684,6 +696,7 @@ function pauseOtherSpotifyPlayers(activeCard){
     clearTimeout(spotifyPendingTimers.get(card));
     pendingSpotifyCards.delete(card);
     playingSpotifyCards.delete(card);
+    if(card)delete card.dataset.expectedUri;
     if(card)card.dataset.playing='false';
     const playerKey=spotifyGroupForKey(key);
     if(playerKey!==activeKey&&wasPlaying){
@@ -695,6 +708,8 @@ function pauseOtherSpotifyPlayers(activeCard){
 function stopAllSpotifyPlayers(){
   // Cancel a track still loading when the room closes or sound changes.
   spotifySelectionEpoch++;
+  spotifyActiveSelection=null;
+  spotifyQueuedSelection=null;
   const activeKeys=new Set();
   for(const [key,collection] of Object.entries(spotifyCollections)){
     const card=document.getElementById(collection.cardId);
@@ -799,6 +814,12 @@ function loadSpotifyUri(controller,uri){
   if(typeof controller.loadEntity==='function')return controller.loadEntity(uri);
   return controller.loadUri(uri,false,0,'dark');
 }
+function spotifyFrameMatchesUri(card,uri){
+  const [,kind,id]=uri.split(':');
+  const frame=card?.querySelector('iframe');
+  if(!frame||!id)return false;
+  try{return new URL(frame.src).pathname===`/embed/${kind}/${id}`;}catch{return false;}
+}
 function previewSpotifyUri(key,uri){
   if(!uri)return;
   const card=document.getElementById(spotifyCollections[key]?.cardId);
@@ -822,17 +843,21 @@ function previewSpotifyUri(key,uri){
     }).catch(()=>{if(spotifyPreviewLoads.get(key)===request)spotifyPreviewLoads.delete(key);});
   }catch{spotifyPreviewLoads.delete(key);spotifyPreviewUris.delete(key);}
 }
-function spotifyPlaybackMatchesExpected(card,event){
-  const expected=card?.dataset.expectedUri;
+function spotifyPlaybackMatchesExpected(key,event){
+  const selected=spotifyActiveSelection;
+  if(!selected||selected.key!==key)return false;
+  const expected=selected.uri;
   const actual=event?.data?.playingURI;
-  if(!expected||!actual)return true;
+  if(!actual)return false;
   if(expected.startsWith('spotify:playlist:'))return actual.startsWith('spotify:track:');
   return actual===expected;
 }
 function startSpotifyEntity(key,collection,card,uri){
+  if(key==='mixed')card=document.getElementById(spotifyCollections.produced.cardId)??card;
   const playerKey=spotifyGroupForKey(key),controller=spotifyControllers.get(playerKey);
-  if(!controller)return false;
-  const selection=++spotifySelectionEpoch;
+  const selection={epoch:++spotifySelectionEpoch,key:playerKey,uri,card};
+  spotifyActiveSelection=selection;
+  spotifyQueuedSelection=null;
   if(localArtistAudio&&!localArtistAudio.paused)localArtistAudio.pause();
   if(key==='produced'||key==='mixed'){
     const stage=document.getElementById('listen-player-stage');
@@ -864,27 +889,20 @@ function startSpotifyEntity(key,collection,card,uri){
   spotifyPlaybackTargets.set(playerKey,card);
   pauseOtherSpotifyPlayers(card);
   setSpotifyPending(card);
-  // Play the prepared track in this gesture. For a side cover that has not
-  // loaded yet, wait for the new entity before asking Spotify to play it.
-  const playSelected=()=>{
-    if(selection!==spotifySelectionEpoch)return;
-    try{
-      const playback=controller.play?.();
-      playback?.catch?.(()=>{pendingSpotifyCards.delete(card);setSpotifyPlaying(card,false);});
-    }catch{pendingSpotifyCards.delete(card);setSpotifyPlaying(card,false);}
-  };
+  // A cover can become interactive before Spotify finishes creating its
+  // iframe controller. Preserve that exact selection until the player is ready.
+  if(!controller){
+    spotifyQueuedSelection={selection,key:playerKey,sourceKey:key,collection,card,uri};
+    return true;
+  }
+  // Send one play request inside the click gesture. Spotify queues it until
+  // the new embed is ready when loadEntity has started a navigation.
   try{
-    if(spotifyPreviewUris.get(key)===uri){playSelected();return true;}
-    const preparing=spotifyPreviewLoads.get(key);
-    const loaded=preparing?.uri===uri?preparing.promise:loadSpotifyUri(controller,uri);
-    if(loaded&&typeof loaded.then==='function'){
-      loaded.then(()=>{if(selection===spotifySelectionEpoch){spotifyPreviewUris.set(key,uri);playSelected();}})
-        .catch(()=>{if(selection===spotifySelectionEpoch){pendingSpotifyCards.delete(card);setSpotifyPlaying(card,false);}});
-    }else{
-      // Older Spotify controllers return void from loadEntity. Give their
-      // iframe a rendering turn before play instead of racing an empty list.
-      setTimeout(()=>{if(selection===spotifySelectionEpoch){spotifyPreviewUris.set(key,uri);playSelected();}},180);
+    if(!spotifyFrameMatchesUri(card,uri)){
+      loadSpotifyUri(controller,uri);
+      spotifyPreviewUris.set(key,uri);
     }
+    requestSpotifyPlay(selection,controller);
   }catch{
     pendingSpotifyCards.delete(card);
     setSpotifyPlaying(card,false);
@@ -894,7 +912,7 @@ function startSpotifyEntity(key,collection,card,uri){
 function renderSpotifyCollection(key,collection){
   const list=document.getElementById(collection.listId);
   const meta=document.getElementById(collection.metaId);
-  const card=document.getElementById(collection.cardId);
+  const card=document.getElementById(spotifyCollections[spotifyGroupForKey(key)]?.cardId??collection.cardId);
   if(!list||!meta||!card)return;
   meta.hidden=key==='artist';
   meta.textContent=key==='artist'?'':`${collection.tracks.length} tracks`;
@@ -982,7 +1000,7 @@ function mountListeningRoomCarousels(){
     host.append(loading);rail.replaceChildren(host);
     try{
       const items=await Promise.all(collection.tracks.map(async([id,title,artist])=>({id,title,artist,src:await spotifyCoverUrl(id),aspect:1})));
-      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-pointer-v1');
+      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-cover-click-v4');
       const module=await liquidCarouselModulePromise;
       if(!rail.isConnected)return;
       delete rail.dataset.carouselLoading;
@@ -998,7 +1016,7 @@ function mountListeningRoomCarousels(){
 }
 window.addEventListener('spotify-carousel-track-select',event=>{
   const {playlistKey,id,title}=event.detail||{};
-  const collection=spotifyCollections[playlistKey],card=collection&&document.getElementById(collection.cardId);
+  const collection=spotifyCollections[playlistKey],card=collection&&document.getElementById(spotifyCollections[spotifyGroupForKey(playlistKey)].cardId);
   if(!collection||!card)return;
   card.dataset.trackTitle=title;
   startSpotifyEntity(playlistKey,collection,card,`spotify:track:${id}`);
@@ -1075,8 +1093,7 @@ artistAudioProgress?.addEventListener('input',()=>{
 updateArtistAudioUI();
 function mountSpotifyPlayers(api){
   const players=[
-    {key:'produced',collection:spotifyCollections.produced,mountId:'credits-produced-player',cardId:'credits-produced-card'},
-    {key:'mixed',collection:spotifyCollections.mixed,mountId:'credits-mixed-player',cardId:'credits-mixed-card'}
+    {key:'produced',collection:spotifyCollections.produced,mountId:'credits-produced-player',cardId:'credits-produced-card'}
   ];
   for(const {key,collection,mountId,cardId} of players){
     const mount=document.getElementById(mountId);
@@ -1084,22 +1101,31 @@ function mountSpotifyPlayers(api){
     if(!mount||!defaultCard)continue;
     try{
       if(!collection.playlistId)continue;
-      api.createController(mount,{url:`https://open.spotify.com/playlist/${collection.playlistId}?theme=dark`,width:'100%',height:152},controller=>{
+      api.createController(mount,{uri:`spotify:track:${collection.tracks[0][0]}`,width:'100%',height:152},controller=>{
         spotifyControllers.set(key,controller);
         controller.addListener('ready',()=>{
           spotifyControllerReady.add(key);
+          const queuedSelection=spotifyQueuedSelection;
+          if(queuedSelection?.key===key&&spotifyActiveSelection===queuedSelection.selection){
+            spotifyQueuedSelection=null;
+            startSpotifyEntity(queuedSelection.sourceKey,queuedSelection.collection,queuedSelection.card,queuedSelection.uri);
+            return;
+          }
           const queued=spotifyQueuedPreviewUris.get(key);
           if(queued){spotifyQueuedPreviewUris.delete(key);previewSpotifyUri(key,queued);}
         });
         controller.addListener('playback_started',event=>{
           const card=spotifyPlaybackTargets.get(key)??defaultCard;
-          if(!spotifyPlaybackMatchesExpected(card,event))return;
+          if(!spotifyPlaybackMatchesExpected(key,event)){
+            if(spotifyActiveSelection?.key!==key)try{controller.pause?.();}catch{}
+            return;
+          }
           delete card.dataset.expectedUri;
           setSpotifyPlaying(card,true);
         });
         controller.addListener('playback_update',event=>{
           const card=spotifyPlaybackTargets.get(key)??defaultCard;
-          if(!pendingSpotifyCards.has(card)||!event?.data?.playingURI||!spotifyPlaybackMatchesExpected(card,event))return;
+          if(!pendingSpotifyCards.has(card)||!spotifyPlaybackMatchesExpected(key,event))return;
           if(event?.data?.isPaused===false&&event?.data?.isBuffering===false){
             delete card.dataset.expectedUri;
             setSpotifyPlaying(card,true);
@@ -1114,7 +1140,6 @@ function mountSpotifyPlayers(api){
 }
 let spotifyApiTimeout=setTimeout(()=>{
   if(!spotifyControllers.has('produced'))addSpotifyFallback(spotifyCollections.produced);
-  if(!spotifyControllers.has('mixed'))addSpotifyFallback(spotifyCollections.mixed);
 },9000);
 window.onSpotifyIframeApiReady=api=>{
   clearTimeout(spotifyApiTimeout);
@@ -1126,7 +1151,6 @@ spotifyApiScript.async=true;
 spotifyApiScript.onerror=()=>{
   clearTimeout(spotifyApiTimeout);
   addSpotifyFallback(spotifyCollections.produced);
-  addSpotifyFallback(spotifyCollections.mixed);
 };
 document.head.appendChild(spotifyApiScript);
 for(const [key,id] of [['instagramUrl','instagram-link'],['tiktokUrl','tiktok-link']]){
@@ -1318,7 +1342,7 @@ Promise.all(sources.map(s=>loadImage(s.src))).then(images=>{
     const creditsWidth=Math.min(innerWidth,innerHeight*creditsRatio),creditsHeight=creditsWidth/creditsRatio;
     creditsNotes.style.width=creditsWidth+'px';creditsNotes.style.height=creditsHeight+'px';
     creditsNotes.style.left=(innerWidth-creditsWidth)/2+'px';creditsNotes.style.top=(innerHeight-creditsHeight)/2+'px';
-    render();
+    if(ready)render();
   }
   resize();ready=true;entranceStarted=performance.now();document.body.classList.add('ready');render();
   let variantRequest=0;
@@ -1469,6 +1493,7 @@ function setListenRoom(open){
   if(!listenRoom)return;
   clearTimeout(listenRoomTransitionTimer);
   creditsNotes.classList.remove('room-opening','room-returning');
+  creditsNotes.classList.remove('room-scrolled');
   if(open){
     listenRoom.scrollTop=0;
     creditsNotes.classList.add('room-open','room-opening');
@@ -1507,12 +1532,11 @@ function setListenRoom(open){
   }
   clearListenRoomTransition();
 }
+listenRoom?.addEventListener('scroll',()=>{
+  creditsNotes.classList.toggle('room-scrolled',listenRoom.scrollTop>20);
+},{passive:true});
 listenOpen?.addEventListener('click',()=>{
   primeSpotifyAudioGesture();
-  for(const key of ['produced','mixed']){
-    const firstTrack=spotifyCollections[key]?.tracks?.[0]?.[0];
-    if(firstTrack)previewSpotifyUri(key,`spotify:track:${firstTrack}`);
-  }
   setListenRoom(true);
 });
 listenClose?.addEventListener('click',()=>setListenRoom(false));
