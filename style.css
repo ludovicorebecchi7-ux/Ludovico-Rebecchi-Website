@@ -1278,13 +1278,18 @@ h2 em{font-style:normal;font-weight:inherit}
 @media(max-width:700px), (max-height:600px){
   .listen-track-rail.liquid-carousel-rail,
   .listen-track-rail .liquid-glass-carousel{overflow:visible!important;}
+  .listen-track-rail .liquid-glass-carousel > p:not(.sr-only){
+    -webkit-text-size-adjust:none;
+    text-size-adjust:none;
+  }
   .listen-track-rail .liquid-glass-carousel > p:not(.sr-only):not(.tabular-nums){
     top:-8px!important;
     width:min(88%,300px);
     line-height:1.1;
+    white-space:nowrap;
   }
   .listen-track-rail .liquid-glass-carousel > p.tabular-nums{
-    bottom:-3px!important;
+    bottom:-7px!important;
   }
 }
 @media(max-width:700px) and (orientation:portrait) and (max-height:820px){
