@@ -1111,6 +1111,14 @@ function mountSpotifyPlayers(api){
             startSpotifyEntity(queuedSelection.sourceKey,queuedSelection.collection,queuedSelection.card,queuedSelection.uri);
             return;
           }
+          const selected=spotifyActiveSelection;
+          if(selected?.key===key&&pendingSpotifyCards.has(selected.card)&&
+             spotifyFrameMatchesUri(selected.card,selected.uri)&&!selected.readyPlaySent){
+            selected.readyPlaySent=true;
+            // The click's play command can be lost while Spotify replaces its iframe.
+            // Retry only for the current, still-pending track once that iframe is ready.
+            try{controller.play?.();}catch{}
+          }
           const queued=spotifyQueuedPreviewUris.get(key);
           if(queued){spotifyQueuedPreviewUris.delete(key);previewSpotifyUri(key,queued);}
         });
