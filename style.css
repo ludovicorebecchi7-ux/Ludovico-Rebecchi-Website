@@ -1273,3 +1273,26 @@ h2 em{font-style:normal;font-weight:inherit}
 @media(min-width:1150px) and (max-width:1380px) and (min-height:601px){
   .listen-room-close{right:calc(50% - 480px);}
 }
+
+/* Keep carousel captions clear of the artwork on narrow or short screens. */
+@media(max-width:700px), (max-height:600px){
+  .listen-track-rail.liquid-carousel-rail,
+  .listen-track-rail .liquid-glass-carousel{overflow:visible!important;}
+  .listen-track-rail .liquid-glass-carousel > p:not(.sr-only):not(.tabular-nums){
+    top:-8px!important;
+    width:min(88%,300px);
+    line-height:1.1;
+  }
+  .listen-track-rail .liquid-glass-carousel > p.tabular-nums{
+    bottom:-3px!important;
+  }
+}
+@media(max-width:700px) and (orientation:portrait) and (max-height:820px){
+  .listen-room > .listen-player-stage{top:0;}
+}
+@media(max-width:700px) and (orientation:portrait) and (min-height:821px){
+  .listen-room > .listen-player-stage{top:-48px;}
+}
+@media(min-width:701px) and (max-height:600px){
+  .listen-track-rail .liquid-glass-carousel > p:not(.sr-only):not(.tabular-nums){top:-12px!important;}
+}
