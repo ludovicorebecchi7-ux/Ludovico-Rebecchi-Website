@@ -37284,6 +37284,14 @@ function MN(o, t, i) {
         background: "transparent",
         entry: !1,
         className: "liquid-glass-carousel",
+        onActiveChange: (s) => {
+          const u = i[s];
+          u && window.dispatchEvent(
+            new CustomEvent("spotify-carousel-track-preview", {
+              detail: { playlistKey: t, id: u.id }
+            })
+          );
+        },
         onSelect: (s) => {
           const u = i[s];
           u && window.dispatchEvent(
