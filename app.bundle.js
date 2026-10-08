@@ -990,6 +990,34 @@ function addSpotifyFallback(collection){
 }
 for(const [key,collection] of Object.entries(spotifyCollections))renderSpotifyCollection(key,collection);
 let liquidCarouselModulePromise=null;
+function mountListeningRoomCoverFallback(host,key,items){
+  host.parentElement?.classList.add('has-cover-fallback');
+  const rail=document.createElement('div');
+  rail.className='listen-cover-fallback';
+  for(const [index,item] of items.entries()){
+    const cover=document.createElement('button');
+    cover.type='button';
+    cover.className='listen-cover-fallback-item';
+    cover.setAttribute('aria-label',`Play ${item.title} by ${item.artist}`);
+    const image=document.createElement('img');
+    image.src=item.src||`assets/spotify-covers/${item.id}.jpg`;
+    image.alt='';
+    image.loading=index<5?'eager':'lazy';
+    const title=document.createElement('span');
+    title.textContent=item.title;
+    cover.append(image,title);
+    cover.addEventListener('click',()=>{
+      rail.querySelectorAll('.is-selected').forEach(selected=>selected.classList.remove('is-selected'));
+      cover.classList.add('is-selected');
+      window.dispatchEvent(new CustomEvent('spotify-carousel-track-select',{
+        detail:{playlistKey:key,id:item.id,title:item.title,artist:item.artist}
+      }));
+      try{cover.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});}catch{}
+    });
+    rail.append(cover);
+  }
+  host.replaceChildren(rail);
+}
 function mountListeningRoomCarousels(){
   const rows=['produced','mixed'].map(async key=>{
     const collection=spotifyCollections[key],rail=document.getElementById(collection.listId);
@@ -998,18 +1026,23 @@ function mountListeningRoomCarousels(){
     const host=document.createElement('div');host.className='liquid-carousel-host';
     const loading=document.createElement('span');loading.className='liquid-carousel-loading';loading.textContent='loading covers';
     host.append(loading);rail.replaceChildren(host);
+    let items=[];
     try{
-      const items=await Promise.all(collection.tracks.map(async([id,title,artist])=>({id,title,artist,src:await spotifyCoverUrl(id),aspect:1})));
-      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-cover-click-v4');
+      items=await Promise.all(collection.tracks.map(async([id,title,artist])=>({id,title,artist,src:await spotifyCoverUrl(id),aspect:1})));
+      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-cover-click-v5');
       const module=await liquidCarouselModulePromise;
       if(!rail.isConnected)return;
       delete rail.dataset.carouselLoading;
       if(!listenRoom.classList.contains('is-open'))return;
       rail.dataset.carouselMounted='true';
       module.mountSpotifyCarousel(host,key,items);
-    }catch{
+    }catch(error){
       delete rail.dataset.carouselLoading;
-      loading.textContent='covers unavailable';
+      liquidCarouselModulePromise=null;
+      console.error('Listening-room carousel failed to load',error);
+      if(!rail.isConnected||!listenRoom.classList.contains('is-open'))return;
+      if(!items.length)items=collection.tracks.map(([id,title,artist])=>({id,title,artist,src:`assets/spotify-covers/${id}.jpg`}));
+      mountListeningRoomCoverFallback(host,key,items);
     }
   });
   return Promise.all(rows);
