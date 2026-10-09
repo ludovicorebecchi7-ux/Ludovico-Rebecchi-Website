@@ -676,26 +676,13 @@ function requestSpotifyPlay(selection,controller){
   if(spotifyActiveSelection!==selection||!pendingSpotifyCards.has(selection.card))return;
   if(selection.playSent)return;
   selection.playSent=true;
-  // Ask for playback inside the cover's click gesture. The ready handler only
-  // retries later if Spotify still has not reported that this track is playing.
+  // Spotify's iframe API queues play() while loadEntity is navigating and
+  // flushes it on ready. Sending it again on ready can race the new track.
   try{controller.play?.()?.catch?.(()=>{});}catch{}
 }
-function retrySpotifyPlayAfterReady(key,controller){
-  const selection=spotifyActiveSelection;
-  if(!selection||selection.key!==key||selection.retryTimer||selection.retrySent)return;
-  if(!pendingSpotifyCards.has(selection.card)||!spotifyFrameMatchesUri(selection.card,selection.uri))return;
-  selection.retryTimer=setTimeout(()=>{
-    selection.retryTimer=0;
-    if(spotifyActiveSelection!==selection||!pendingSpotifyCards.has(selection.card))return;
-    selection.retrySent=true;
-    try{controller.play?.();}catch{}
-  },500);
-}
-// iOS needs each row's embed ready before the cover is tapped. Desktop keeps
-// the single controller that avoids stalls after repeated playlist switching.
-const spotifySeparateMobilePlayers=/iPhone|iPad|iPod/.test(navigator.userAgent)||
-  (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-function spotifyGroupForKey(key){return !spotifySeparateMobilePlayers&&key==='mixed'?'produced':key;}
+// Both credits rows share one Spotify embed. Rapidly alternating two embeds
+// can leave Chromium's inactive frame reporting Play without advancing audio.
+function spotifyGroupForKey(key){return key==='mixed'?'produced':key;}
 function spotifyKeyForCard(card){
   const key=Object.entries(spotifyCollections).find(([,collection])=>document.getElementById(collection.cardId)===card)?.[0];
   return key?spotifyGroupForKey(key):null;
@@ -721,7 +708,6 @@ function pauseOtherSpotifyPlayers(activeCard){
 function stopAllSpotifyPlayers(){
   // Cancel a track still loading when the room closes or sound changes.
   spotifySelectionEpoch++;
-  clearTimeout(spotifyActiveSelection?.retryTimer);
   spotifyActiveSelection=null;
   spotifyQueuedSelection=null;
   const activeKeys=new Set();
@@ -790,7 +776,6 @@ function setSpotifyPending(card){
 function setSpotifyPlaying(card,playing){
   if(!card)return;
   if(playing){
-    clearTimeout(spotifyActiveSelection?.retryTimer);
     const key=spotifyKeyForCard(card);
     clearTimeout(spotifyPendingTimers.get(card));
     pendingSpotifyCards.delete(card);
@@ -837,26 +822,26 @@ function spotifyFrameMatchesUri(card,uri){
 }
 function previewSpotifyUri(key,uri){
   if(!uri)return;
-  const playerKey=spotifyGroupForKey(key);
-  const card=document.getElementById(spotifyCollections[playerKey]?.cardId);
-  // Preloading must never interrupt the shared player while it is in use.
-  if(card&&(playingSpotifyCards.has(card)||pendingSpotifyCards.has(card)||spotifyActiveSelection?.card===card))return;
-  const controller=spotifyControllers.get(playerKey);
-  if(!controller||!spotifyControllerReady.has(playerKey)){
-    spotifyQueuedPreviewUris.set(playerKey,uri);
+  const card=document.getElementById(spotifyCollections[key]?.cardId);
+  // Loading into the player already making sound would interrupt that track.
+  // The other playlist's idle player can be prepared while music is playing.
+  if(card&&(playingSpotifyCards.has(card)||pendingSpotifyCards.has(card)))return;
+  const controller=spotifyControllers.get(key);
+  if(!controller||!spotifyControllerReady.has(key)){
+    spotifyQueuedPreviewUris.set(key,uri);
     return;
   }
-  if(spotifyPreviewUris.get(playerKey)===uri||spotifyPreviewLoads.get(playerKey)?.uri===uri)return;
+  if(spotifyPreviewUris.get(key)===uri||spotifyPreviewLoads.get(key)?.uri===uri)return;
   try{
     const loading=loadSpotifyUri(controller,uri);
     const request={uri,promise:Promise.resolve(loading)};
-    spotifyPreviewLoads.set(playerKey,request);
+    spotifyPreviewLoads.set(key,request);
     request.promise.then(()=>{
-      if(spotifyPreviewLoads.get(playerKey)!==request)return;
-      spotifyPreviewLoads.delete(playerKey);
-      spotifyPreviewUris.set(playerKey,uri);
-    }).catch(()=>{if(spotifyPreviewLoads.get(playerKey)===request)spotifyPreviewLoads.delete(playerKey);});
-  }catch{spotifyPreviewLoads.delete(playerKey);spotifyPreviewUris.delete(playerKey);}
+      if(spotifyPreviewLoads.get(key)!==request)return;
+      spotifyPreviewLoads.delete(key);
+      spotifyPreviewUris.set(key,uri);
+    }).catch(()=>{if(spotifyPreviewLoads.get(key)===request)spotifyPreviewLoads.delete(key);});
+  }catch{spotifyPreviewLoads.delete(key);spotifyPreviewUris.delete(key);}
 }
 function spotifyPlaybackMatchesExpected(key,event){
   const selected=spotifyActiveSelection;
@@ -868,9 +853,8 @@ function spotifyPlaybackMatchesExpected(key,event){
   return actual===expected;
 }
 function startSpotifyEntity(key,collection,card,uri){
-  if(key==='mixed'&&!spotifySeparateMobilePlayers)card=document.getElementById(spotifyCollections.produced.cardId)??card;
+  if(key==='mixed')card=document.getElementById(spotifyCollections.produced.cardId)??card;
   const playerKey=spotifyGroupForKey(key),controller=spotifyControllers.get(playerKey);
-  clearTimeout(spotifyActiveSelection?.retryTimer);
   const selection={epoch:++spotifySelectionEpoch,key:playerKey,uri,card};
   spotifyActiveSelection=selection;
   spotifyQueuedSelection=null;
@@ -916,7 +900,7 @@ function startSpotifyEntity(key,collection,card,uri){
   try{
     if(!spotifyFrameMatchesUri(card,uri)){
       loadSpotifyUri(controller,uri);
-      spotifyPreviewUris.set(playerKey,uri);
+      spotifyPreviewUris.set(key,uri);
     }
     requestSpotifyPlay(selection,controller);
   }catch{
@@ -1016,7 +1000,7 @@ function mountListeningRoomCarousels(){
     host.append(loading);rail.replaceChildren(host);
     try{
       const items=await Promise.all(collection.tracks.map(async([id,title,artist])=>({id,title,artist,src:await spotifyCoverUrl(id),aspect:1})));
-      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-cover-click-v5');
+      if(!liquidCarouselModulePromise)liquidCarouselModulePromise=import('./assets/liquid-glass-carousel.js?v=quasi2-cover-click-v4');
       const module=await liquidCarouselModulePromise;
       if(!rail.isConnected)return;
       delete rail.dataset.carouselLoading;
@@ -1037,13 +1021,9 @@ window.addEventListener('spotify-carousel-track-select',event=>{
   card.dataset.trackTitle=title;
   startSpotifyEntity(playlistKey,collection,card,`spotify:track:${id}`);
 });
-let spotifyPreviewTimer=0;
 window.addEventListener('spotify-carousel-track-preview',event=>{
   const {playlistKey,id}=event.detail||{};
-  if(playlistKey!=='produced'&&playlistKey!=='mixed')return;
-  clearTimeout(spotifyPreviewTimer);
-  if(spotifySeparateMobilePlayers){previewSpotifyUri(playlistKey,`spotify:track:${id}`);return;}
-  spotifyPreviewTimer=setTimeout(()=>previewSpotifyUri(playlistKey,`spotify:track:${id}`),120);
+  if(playlistKey==='produced'||playlistKey==='mixed')previewSpotifyUri(playlistKey,`spotify:track:${id}`);
 });
 const artistAudio=document.getElementById('artist-local-audio');
 localArtistAudio=artistAudio;
@@ -1113,8 +1093,7 @@ artistAudioProgress?.addEventListener('input',()=>{
 updateArtistAudioUI();
 function mountSpotifyPlayers(api){
   const players=[
-    {key:'produced',collection:spotifyCollections.produced,mountId:'credits-produced-player',cardId:'credits-produced-card'},
-    ...(spotifySeparateMobilePlayers?[{key:'mixed',collection:spotifyCollections.mixed,mountId:'credits-mixed-player',cardId:'credits-mixed-card'}]:[])
+    {key:'produced',collection:spotifyCollections.produced,mountId:'credits-produced-player',cardId:'credits-produced-card'}
   ];
   for(const {key,collection,mountId,cardId} of players){
     const mount=document.getElementById(mountId);
@@ -1132,7 +1111,6 @@ function mountSpotifyPlayers(api){
             startSpotifyEntity(queuedSelection.sourceKey,queuedSelection.collection,queuedSelection.card,queuedSelection.uri);
             return;
           }
-          retrySpotifyPlayAfterReady(key,controller);
           const queued=spotifyQueuedPreviewUris.get(key);
           if(queued){spotifyQueuedPreviewUris.delete(key);previewSpotifyUri(key,queued);}
         });
@@ -1151,8 +1129,6 @@ function mountSpotifyPlayers(api){
           if(event?.data?.isPaused===false&&event?.data?.isBuffering===false){
             delete card.dataset.expectedUri;
             setSpotifyPlaying(card,true);
-          }else if(event?.data?.isPaused===true&&event?.data?.isBuffering===false){
-            retrySpotifyPlayAfterReady(key,controller);
           }
         });
         controller.addListener('playback_paused',()=>setSpotifyPlaying(spotifyPlaybackTargets.get(key)??defaultCard,false));
@@ -1164,7 +1140,6 @@ function mountSpotifyPlayers(api){
 }
 let spotifyApiTimeout=setTimeout(()=>{
   if(!spotifyControllers.has('produced'))addSpotifyFallback(spotifyCollections.produced);
-  if(spotifySeparateMobilePlayers&&!spotifyControllers.has('mixed'))addSpotifyFallback(spotifyCollections.mixed);
 },9000);
 window.onSpotifyIframeApiReady=api=>{
   clearTimeout(spotifyApiTimeout);
