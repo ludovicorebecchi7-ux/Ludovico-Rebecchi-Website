@@ -690,14 +690,15 @@ function retrySpotifyPlayAfterReady(key,controller){
   selection.retryTimer=setTimeout(()=>{
     selection.retryTimer=0;
     if(spotifyActiveSelection!==selection||!pendingSpotifyCards.has(selection.card))return;
+    if(selection.playbackState?.isPaused!==true||selection.playbackState?.isBuffering!==false)return;
     selection.retrySent=true;
-    try{controller.play?.();}catch{}
+    // A retry must resume, not send another PLAY that can restart the context.
+    try{controller.resume?.();}catch{}
   },500);
 }
-// iOS needs each row's embed ready before the cover is tapped. Desktop keeps
-// the single controller that avoids stalls after repeated playlist switching.
-const spotifySeparateMobilePlayers=/iPhone|iPad|iPod/.test(navigator.userAgent)||
-  (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+// Restore the first published player's single embed on every device.
+// Both playlist rows keep the same Spotify playback context when switching.
+const spotifySeparateMobilePlayers=false;
 function spotifyGroupForKey(key){return !spotifySeparateMobilePlayers&&key==='mixed'?'produced':key;}
 function spotifyKeyForCard(card){
   const key=Object.entries(spotifyCollections).find(([,collection])=>document.getElementById(collection.cardId)===card)?.[0];
@@ -1040,14 +1041,8 @@ window.addEventListener('spotify-carousel-track-select',event=>{
   card.dataset.trackTitle=title;
   startSpotifyEntity(playlistKey,collection,card,`spotify:track:${id}`);
 });
-let spotifyPreviewTimer=0;
-window.addEventListener('spotify-carousel-track-preview',event=>{
-  const {playlistKey,id}=event.detail||{};
-  if(playlistKey!=='produced'&&playlistKey!=='mixed')return;
-  clearTimeout(spotifyPreviewTimer);
-  if(spotifySeparateMobilePlayers){previewSpotifyUri(playlistKey,`spotify:track:${id}`);return;}
-  spotifyPreviewTimer=setTimeout(()=>previewSpotifyUri(playlistKey,`spotify:track:${id}`),120);
-});
+// Scrolling changes the visual selection only. Navigate Spotify exclusively
+// when a cover is selected, as in the first published carousel player.
 const artistAudio=document.getElementById('artist-local-audio');
 localArtistAudio=artistAudio;
 const artistAudioToggle=document.getElementById('artist-audio-toggle');
@@ -1150,6 +1145,13 @@ function mountSpotifyPlayers(api){
           const card=spotifyPlaybackTargets.get(key)??defaultCard;
           if(!spotifyPlaybackMatchesExpected(key,event))return;
           spotifyActiveSelection.playbackState=event.data;
+          // Manual play can report unpaused+buffering before audible playback.
+          // Cancel our retry immediately, before it can interrupt that gesture.
+          if(event?.data?.isPaused===false){
+            clearTimeout(spotifyActiveSelection.retryTimer);
+            spotifyActiveSelection.retryTimer=0;
+            spotifyActiveSelection.retrySent=true;
+          }
           if(event?.data?.isPaused===false&&event?.data?.isBuffering===false){
             if(!playingSpotifyCards.has(card)){
               delete card.dataset.expectedUri;

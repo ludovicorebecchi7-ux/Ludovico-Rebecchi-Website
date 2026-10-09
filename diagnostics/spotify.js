@@ -71,9 +71,10 @@
     if(['ready','playback_started','playback_update','error'].includes(e.data?.type))
       record('iframe-message',{key:entry.key,event:e.data.type,payload:e.data.payload});
   });
-  record('environment',{userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,dpr:devicePixelRatio});
+  record('environment',{page:location.pathname,userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,dpr:devicePixelRatio});
   document.addEventListener('visibilitychange',()=>record('visibility',{value:document.visibilityState}));
   document.addEventListener('DOMContentLoaded',()=>{
+    record('app-version',{script:document.querySelector('script[src*="player-candidate"]')?.src||document.querySelector('script[src*="app.bundle"]')?.src});
     const button=document.createElement('button');
     button.textContent='Log Spotify';
     button.style.cssText='position:fixed;left:8px;top:8px;z-index:2147483646;padding:7px 9px;border:1px solid #888;background:#111;color:#fff;font:12px sans-serif;';
